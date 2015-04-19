@@ -14,7 +14,6 @@ public class LevelDef {
 		sceneName = sn;
 		unlocked = ln == freeUnlockName;
 		unlocked = "Unlocked" == RunnerSaveGame.GetValue("Level." + ln + ".Unlocked", unlocked ? "Unlocked" : "Locked");
-		
 	}
 
 	function renderMenuOption( menu:Transform ) {
@@ -25,6 +24,9 @@ public class LevelDef {
 		levelLocked.GetComponent(UI.Text).text = (unlocked ? "" : "Locked");
 	}
 
+	function clickHandler () {
+		Application.LoadLevel(sceneName);
+	}
 
 	function Update () {
 		

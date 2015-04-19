@@ -186,11 +186,13 @@ function CancelDelete() {
 }
 
 function ConfirmRunnerButton () {
+	RunnerSaveGame.SetGlobal("ActiveSave", "" + activeSave);
 	RunnerSaveGame.SetValue("ActiveRunner", "" + currentRunner);
 	RunnerSaveGame.SetValue("ActiveCage", "" + currentCage);
 	RunnerSaveGame.SaveGame();
 	EnterLevelSelect();
 }
+
 var levelDefs:Array;
 private var levelScrollPosition:int = 0;
 var menuItemPrefab:Transform;
@@ -203,7 +205,7 @@ function AddLevelDef (ln:String, sn:String) {
 	var itemRect:Rect = levelItem.GetComponent(RectTransform).rect;
 	var scrollableRect:Rect = levelSelect.FindChild("ScrollRect/ScrollableContent").GetComponent(RectTransform).rect;
 	levelItem.transform.localPosition = new Vector3(itemRect.width/2, (itemRect.height * -0.5) + (scrollableRect.height) - itemRect.height * levelDefs.length, 0);
-	levelItem.GetComponent(UI.Button).onClick.AddListener(LevelClick);
+	levelItem.GetComponent(UI.Button).onClick.AddListener(level.clickHandler);
 	levelDefs.Push(level);
 
 }
@@ -214,7 +216,7 @@ function LevelClick () {
 
 function EnterLevelSelect () {
 	levelDefs = [];
-	AddLevelDef("Tutorial", "sceneName");
+	AddLevelDef("Tutorial", "CheezeWizTest");
 	AddLevelDef("Level 1", "sceneName");
 	AddLevelDef("Level 2", "sceneName");
 	AddLevelDef("Level 3", "sceneName");
@@ -227,7 +229,6 @@ function EnterLevelSelect () {
 	AddLevelDef("Level 10", "sceneName");
 	hideAllMenus();
 	levelSelect.gameObject.SetActive(true);
-	//RenderVisibleLevels();
 }
 
 function RenderVisibleLevels() {
