@@ -38,11 +38,12 @@ namespace UnityStandardAssets.Vehicles.Ball
 
 
             // If on the ground and jump is pressed...
-			double groundCheck = GetComponent<SphereCollider>().radius * 1.2;
+			float sphereRadius = GetComponent<SphereCollider> ().radius * ((transform.localScale.x + transform.localScale.y + transform.localScale.z) / 3);
+			double groundCheck = sphereRadius * 1.2;
 			if (Physics.Raycast(transform.position, -Vector3.up, (float)groundCheck, 1 << 8) && jump)
             {
                 // ... add force in upwards.
-                m_Rigidbody.AddForce(Vector3.up*m_JumpPower, ForceMode.Impulse);
+				m_Rigidbody.AddForce(Vector3.up * m_JumpPower /** sphereRadius*/, ForceMode.Impulse);
             }
         }
     }

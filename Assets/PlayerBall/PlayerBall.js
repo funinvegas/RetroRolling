@@ -13,18 +13,26 @@ function Start () {
 	InitActiveRunner();
 	RenderSettings.ambientLight = Color.white;
 	RenderSettings.ambientIntensity = 1;
+	startingLocation = transform.position;
 }
 
 public var cameraNode:Transform;
 public var cameraLook:Transform;
+public var cameraRaycast:Transform;
 private var runnerNode:Transform;
+private var startingLocation:Vector3 = new Vector3(0,0,0);
 function Update () {
+	if (transform.position.y < -1000) {
+		transform.position = startingLocation;
+		transform.position.y += GetComponent(SphereCollider).radius * averageVectorValue(transform.localScale);
+		gameObject.GetComponent(Rigidbody).velocity = new Vector3(0,0,0);
+	}
 }
 var lastPosition:Vector3 = new Vector3(0,0,0);
 function FixedUpdate () {
 	//runnerNode.transform.rotation.SetLookRotation(runnerNode.transform.forward * -1);
 	runnerNode.transform.eulerAngles = new Vector3(0,Camera.main.transform.eulerAngles.y,0);
-	var playerSize:double = GetComponent(SphereCollider).radius;
+	var playerSize:double = GetComponent(SphereCollider).radius * averageVectorValue(transform.localScale);
 	/*
 	var currentPosition:Vector3 = transform.position;
 	var movement:Vector3 = lastPosition - currentPosition;
@@ -55,26 +63,53 @@ function FixedUpdate () {
 	//}
 	*/
 	cameraLook.position = transform.position;
-	cameraLook.position.y += playerSize * 3;
-	var cameraDelta:Vector3 = cameraNode.transform.position - cameraLook.position;
+	cameraLook.position.y += playerSize * 1;
+	var cameraMoveTarget:Vector3 = transform.position;
+	cameraMoveTarget.y += playerSize;
+	//cameraNode.transform.position = Vector3.Lerp(cameraNode.transform.position, new Vector3(cameraNode.transform.position.x, cameraLook.position.y, cameraNode.transform.position.z), 0.5);
+	var cameraDelta:Vector3 = cameraNode.transform.position - cameraMoveTarget;
 	var cameraDirection:Vector3 = cameraDelta.normalized;
 	var maxDistance:double = playerSize * 6;
-	var minDistance:double = playerSize * 3;
+	var minDistance:double = playerSize * 4;
 	//cameraDirection.y += playerSize * 2;
-	Debug.DrawRay(cameraLook.position, cameraDirection * maxDistance, Color.blue);
-	Debug.DrawRay(cameraLook.position, cameraDirection * minDistance, Color.red);
-	if (Mathf.Abs(cameraDelta.magnitude) > maxDistance) {
-		//cameraNode.transform.position = Vector3.Lerp(cameraNode.transform.position, cameraLook.position + (cameraDirection * maxDistance), 0.1);
-		cameraNode.transform.position = cameraLook.position + (cameraDirection * maxDistance);
-	}
+	//Debug.DrawRay(cameraMoveTarget, cameraDirection * maxDistance, Color.blue);
+	//Debug.DrawRay(cameraMoveTarget, cameraDirection * minDistance, Color.red);
 	if (Mathf.Abs(cameraDelta.magnitude) < minDistance) {
-		cameraDirection.y += playerSize * 2;
-		cameraNode.transform.position = cameraLook.position + (cameraDirection * minDistance);
-		//cameraNode.transform.position = Vector3.Lerp(cameraNode.transform.position, cameraLook.position + (cameraDirection * maxDistance), 0.1);
+		cameraDirection.y += playerSize;
+		cameraDirection = cameraDirection.normalized;
+		//cameraNode.transform.position = cameraMoveTarget + (cameraDirection * minDistance);
+		cameraNode.transform.position = Vector3.Lerp(cameraNode.transform.position, cameraMoveTarget + (cameraDirection * minDistance), 0.05);
 		//cameraDirection.x *= -1;
 		//cameraDirection.z *= -1;
-		//cameraNode.transform.position = Vector3.Lerp(cameraNode.transform.position, transform.position + (cameraDirection * maxDistance), 0.7);
+		//cameraNode.transform.position = Vector3.Lerp(cameraNode.transform.position, cameraMoveTarget + (cameraDirection * maxDistance), 0.7);
+	} else {
+		if (cameraNode.transform.position.y > cameraMoveTarget.y) {
+			if (Mathf.Abs(cameraDelta.x) * Mathf.Abs(cameraDelta.x) + Mathf.Abs(cameraDelta.y) * Mathf.Abs(cameraDelta.y) > minDistance * minDistance) {		
+				cameraDirection.y -= playerSize;
+				cameraDirection = cameraDirection.normalized;
+				cameraNode.transform.position = Vector3.Lerp(cameraNode.transform.position, cameraMoveTarget + (cameraDirection * minDistance), 0.01);
+			}
+		}
+		if (Mathf.Abs(cameraDelta.magnitude) > maxDistance) {
+			cameraNode.transform.position = Vector3.Lerp(cameraNode.transform.position, cameraMoveTarget + (cameraDirection * maxDistance), 0.05);
+			//cameraNode.transform.position = cameraMoveTarget + (cameraDirection * maxDistance);
+		}
 	}
+	
+	var hit : RaycastHit;
+	cameraDelta = cameraNode.transform.position - cameraLook.position;
+	cameraDirection = cameraDelta.normalized;
+	Debug.DrawRay(cameraLook.position, cameraDelta, Color.white);
+	if (Physics.Raycast(cameraLook.position, cameraDirection, hit, 1 << 8)) {
+		if(hit.distance < cameraDelta.magnitude && !hit.rigidbody || (hit.rigidbody && (hit.rigidbody.gameObject != gameObject))) {
+			cameraRaycast.transform.position = hit.point;
+		}
+		//var distanceToGround = hit.distance;
+	} else {
+		cameraRaycast.transform.position = cameraNode.transform.position;
+	}
+		
+
 }
 
 var childCount = 0;
@@ -83,6 +118,9 @@ function ChildCollide(collisionInfo:Collision) {
 	Debug.Log("Child Collide Called");
 	OnCollisionEnter(collisionInfo);
 }
+function averageVectorValue(v:Vector3) {
+	return (v.x + v.y + v.z) / 3;
+}
 function OnCollisionEnter(collisionInfo:Collision)
 {
 	if (collisionInfo.collider.name != "Plane") {
@@ -90,8 +128,41 @@ function OnCollisionEnter(collisionInfo:Collision)
 	    //Debug.Log("There are " + collisionInfo.contacts.Length + " point(s) of contacts");
 	    //Debug.Log("Their relative velocity is " + collisionInfo.relativeVelocity);
 	}
-	
-	if (collisionInfo.collider.name == "Pickupable") {
+	var worldObject:GameObject = collisionInfo.gameObject;
+	if (worldObject) {
+		var pickupAble:Transform = worldObject.transform.FindChild("Pickupable");
+		if (pickupAble) {
+		    var pickupAbleCollider = pickupAble.GetComponent(SphereCollider);
+		    if (pickupAbleCollider) {
+			   	var playerSize:SphereCollider = GetComponent(SphereCollider) as SphereCollider;
+			   	var radius = playerSize.radius * averageVectorValue(transform.localScale);
+			   	var pickupRadius = pickupAble.GetComponent(SphereCollider).radius * averageVectorValue(worldObject.transform.localScale);
+			   	if (pickupRadius * 3 < radius  && pickupRadius * 20) {
+			   		Debug.Log("Pickup Radius = " + pickupRadius + " Player Radius = " + radius);
+				    var deltaVec:Vector3 = pickupAble.position - transform.position;
+				    pickupAble.name += "." + childCount;
+				    worldObject.name += "." + childCount;
+				    childCount++;
+				    worldObject.transform.SetParent(transform);
+				    pickupAbleCollider.material = GetComponent(SphereCollider).material;
+				    pickupAbleCollider.enabled = true;
+				    pickupAble.gameObject.layer = gameObject.layer;
+				    var worldObjectColliders:Array = worldObject.GetComponents(Collider);
+				    for( var i = 0; i < worldObjectColliders.length; ++i ){
+				    	(worldObjectColliders[i] as Collider).enabled = false;
+				    }
+				    Destroy (worldObject.GetComponent.<Rigidbody>());
+				   	worldObject.transform.localPosition = worldObject.transform.localPosition.normalized * playerSize.radius;
+				   	worldObject.transform.localPosition -= pickupAble.transform.localPosition;
+				   	// r3 = r1 (1 + 1/3r2^3/ r1^3)
+				   	// Nate math suggests 0.333, but picking a number that looks good
+				   	var factor = 0.2 * ((pickupRadius * pickupRadius * pickupRadius) / (radius * radius * radius));
+				   	playerSize.radius = playerSize.radius * (1 + factor);
+				}
+			}
+		}
+	}
+	/*if (collisionInfo.collider.name == "Pickupable") {
 	    var worldObject:GameObject = collisionInfo.gameObject;
 	    //Debug.Log("World object name = " + worldObject.name);
 	    var pickupAble:GameObject = worldObject.transform.FindChild("Pickupable").gameObject;
@@ -113,7 +184,7 @@ function OnCollisionEnter(collisionInfo:Collision)
 	   	var factor = 0.15 * ((pickupRadius * pickupRadius * pickupRadius) / (playerSize.radius * playerSize.radius * playerSize.radius));
 	   	//playerSize.radius += (pickupRadius * (  factor * factor * factor * factor ));
 	   	playerSize.radius = playerSize.radius * (1 + factor);
-	}
+	}*/
 }
 
 
